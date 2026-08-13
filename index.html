@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flawless UK &ndash; Debtors Dashboard</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{--bg:#f5f5f3;--surface:#fff;--surface1:#f9f9f8;--border:rgba(0,0,0,.10);--border-strong:rgba(0,0,0,.18);--text:#0b0b0b;--text-sec:#52514e;--text-muted:#898781;--accent:#2a78d6;--warn:#c98500;--danger:#d03b3b;--green:#2d7d3a;--green-bg:#EAF3DE;--radius:8px;}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1a19;--surface:#242422;--surface1:#2c2c2a;--border:rgba(255,255,255,.10);--border-strong:rgba(255,255,255,.18);--text:#f0efe8;--text-sec:#c3c2b7;--green-bg:#1a2e1a;}}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;min-height:100vh;}
+#wrap{padding:20px 24px 48px;max-width:1400px;margin:0 auto;}
+.top-bar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;}
+.top-bar h1{font-size:20px;font-weight:700;letter-spacing:-.01em;}
+.top-bar h1 span{color:var(--accent);}
+.report-date{font-size:12px;color:var(--text-muted);margin-top:3px;}
+.tag{display:inline-block;background:var(--surface1);border:0.5px solid var(--border-strong);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:500;color:var(--text-sec);}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px;margin-bottom:18px;}
+.kpi{background:var(--surface1);border-radius:var(--radius);padding:.7rem 1rem;}
+.kpi-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;}
+.kpi-val{font-size:20px;font-weight:700;color:var(--text);}
+.kpi-val.warn{color:var(--warn);}.kpi-val.danger{color:var(--danger);}.kpi-val.green{color:var(--green);}
+.chart-row{display:grid;grid-template-columns:1.4fr 1fr;gap:12px;margin-bottom:18px;}
+@media(max-width:680px){.chart-row{grid-template-columns:1fr;}}
+.chart-card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;}
+.chart-title{font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
+canvas{display:block;}
+.rep-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border);}
+.rep-row:last-child{border-bottom:none;}
+.rep-name{font-size:12px;color:var(--text-sec);width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0;}
+.bar-bg{flex:1;background:var(--surface1);border-radius:2px;height:7px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:2px;background:var(--accent);}
+.rep-val{font-size:12px;font-weight:600;min-width:58px;text-align:right;color:var(--text);}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center;}
+.controls input,.controls select{font-size:13px;padding:6px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);background:var(--surface);color:var(--text);height:34px;outline:none;}
+.controls input{width:200px;}.controls input:focus,.controls select:focus{border-color:var(--accent);}
+.table-info{font-size:12px;color:var(--text-muted);margin-bottom:6px;}
+.table-wrap{overflow-x:auto;border:0.5px solid var(--border);border-radius:var(--radius);}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+th{background:var(--surface1);color:var(--text-muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:8px 10px;text-align:left;border-bottom:0.5px solid var(--border);white-space:nowrap;user-select:none;}
+th.payment-col{color:var(--green);}
+td{padding:7px 10px;border-bottom:0.5px solid var(--border);white-space:nowrap;color:var(--text);overflow:hidden;text-overflow:ellipsis;max-width:200px;}
+tr:last-child td{border-bottom:none;}tr:hover td{background:var(--surface1);}
+tr.has-payment td{background:rgba(46,125,50,0.04);}tr.has-payment:hover td{background:rgba(46,125,50,0.08);}
+.num{text-align:right;}.payment-val{text-align:right;color:var(--green);font-weight:700;}
+.badge{display:inline-block;font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px;white-space:nowrap;}
+.badge-ok{background:#EAF3DE;color:#3B6D11;}.badge-warn{background:#FAEEDA;color:#854F0B;}
+.badge-danger{background:#FCEBEB;color:#A32D2D;}.badge-critical{background:#d03b3b;color:#fff;}
+.num-warn{color:var(--warn);font-weight:600;}.num-danger{color:var(--danger);font-weight:600;}
+.payment-tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--green);background:var(--green-bg);border:1px solid rgba(45,125,58,0.25);border-radius:4px;padding:2px 7px;white-space:nowrap;}
+.pagination{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:12px;color:var(--text-sec);}
+.pagination button{padding:4px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);background:var(--surface);color:var(--text);font-size:12px;cursor:pointer;}
+.pagination button:hover{background:var(--surface1);}.pagination button:disabled{opacity:.35;cursor:default;}
+.footer{margin-top:32px;font-size:11px;color:var(--text-muted);text-align:center;}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div class="top-bar">
+    <div>
+      <h1>Flawless UK &nbsp;<span>Debtors</span></h1>
+      <div class="report-date">Aged debt as at 10/08/2026 &nbsp;&middot;&nbsp; Payments as at 11/08/2026 &nbsp;&middot;&nbsp; 143 customers</div>
+    </div>
+    <span class="tag">&#128202; Live report</span>
+  </div>
+  <div class="kpi-row" id="kpis"></div>
+  <div class="chart-row">
+    <div class="chart-card">
+      <div class="chart-title">Balance by aging bucket</div>
+      <canvas id="ageChart" height="190"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Balance by sales rep</div>
+      <div id="repBars"></div>
+    </div>
+  </div>
+  <div class="controls">
+    <input type="text" id="search" placeholder="Search customer, ID, rep&hellip;">
+    <select id="repFilter"><option value="">All reps</option></select>
+    <select id="bucketFilter">
+      <option value="">All customers</option>
+      <option value="current">Current only (0&ndash;30)</option>
+      <option value="31">31&ndash;60 days overdue</option>
+      <option value="61">61&ndash;90 days overdue</option>
+      <option value="91">91&ndash;120 days overdue</option>
+      <option value="121">121+ days overdue</option>
+      <option value="overdue">Any overdue (31+)</option>
+      <option value="paid">Payment received today</option>
+    </select>
+    <select id="sortField">
+      <option value="total">Sort: balance &darr;</option>
+      <option value="name">Sort: customer name</option>
+      <option value="payment">Sort: payment &darr;</option>
+      <option value="b31">Sort: 31&ndash;60 days &darr;</option>
+      <option value="b61">Sort: 61&ndash;90 days &darr;</option>
+      <option value="b91">Sort: 91+ days &darr;</option>
+    </select>
+  </div>
+  <div class="table-info" id="tinfo"></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th style="min-width:175px">Customer</th>
+        <th style="min-width:65px">ID</th>
+        <th style="min-width:115px">Rep</th>
+        <th class="num" style="min-width:78px">0&ndash;30</th>
+        <th class="num" style="min-width:78px">31&ndash;60</th>
+        <th class="num" style="min-width:78px">61&ndash;90</th>
+        <th class="num" style="min-width:78px">91&ndash;120</th>
+        <th class="num" style="min-width:78px">121+</th>
+        <th class="num payment-col" style="min-width:105px">&#8595; Payment in</th>
+        <th class="num" style="min-width:88px">Balance</th>
+        <th style="min-width:100px">Status</th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <div class="pagination">
+    <button id="prevBtn" disabled>&lsaquo; Prev</button>
+    <span id="pageInfo"></span>
+    <button id="nextBtn">Next &rsaquo;</button>
+  </div>
+  <div class="footer">Flawless UK &middot; Debtors Dashboard &middot; Aged debt 10/08/2026 &middot; Payments 11/08/2026</div>
+</div>
+<script>
+var RAW=[{"id": "C04930", "name": "ACME E-COMMERCE LTD", "rep": "Mandeep Kohli", "b0": 0.0, "b31": 790.08, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 790.08}, {"id": "C02854", "name": "Cloud Chasers", "rep": "Mandeep Kohli", "b0": 0.0, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 3971.43, "payment": 0, "total": 3971.43}, {"id": "C03461", "name": "Cloud City", "rep": "Hamza", "b0": 0.0, "b31": 5752.6, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 5752.6}, {"id": "C00243", "name": "Clyde Importers Ltd", "rep": "Mandeep Kohli", "b0": 33374.4, "b31": 30676.8, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 64051.2}, {"id": "C02706", "name": "Deals 247", "rep": "Mandeep Kohli", "b0": 60639.18, "b31": 54968.92, "b61": 12292.2, "b91": 0.0, "b121": -0.08, "payment": 0, "total": 127900.22}, {"id": "C00325", "name": "Dirty Bs Vape Bar", "rep": "Mandeep Kohli", "b0": 0.0, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 1333.31, "payment": 0, "total": 1333.31}, {"id": "C00465", "name": "Fizzy Uk Limited", "rep": "Mandeep Kohli", "b0": 46754.76, "b31": 5366.7, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 52121.46}, {"id": "C01765", "name": "Future Juice", "rep": "Mandeep Kohli", "b0": 0.0, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 1116.96, "payment": 0, "total": 1116.96}, {"id": "C00508", "name": "GFC PROVAP", "rep": "Mandeep Kohli", "b0": 0.0, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 21302.5, "payment": 0, "total": 21302.5}, {"id": "C01528", "name": "Global Bargains Ltd", "rep": "Mandeep Kohli", "b0": 0.0, "b31": 2685.6, "b61": 0.0, "b91": 0.0, "b121": -384.0, "payment": 0, "total": 2301.6}, {"id": "C00518", "name": "Good One Deals Cash And Carry BHM", "rep": "Mandeep Kohli", "b0": 220248.53, "b31": 72300.02, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 292548.55}, {"id": "C03721", "name": "Good one deals cash and carry NEWCASTLE", "rep": "Mandeep Kohli", "b0": 20765.29, "b31": 5944.08, "b61": -25.92, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 26683.45}, {"id": "C00836", "name": "Grey Haze", "rep": "Mandeep Kohli", "b0": 25291.51, "b31": 23500.89, "b61": -102.02, "b91": 0.0, "b121": -84.58, "payment": 0, "total": 48605.8}, {"id": "C01338", "name": "Island Vape", "rep": "Mandeep Kohli", "b0": 76967.26, "b31": 14947.7, "b61": -1618.68, "b91": -316.26, "b121": 0.0, "payment": 0, "total": 89980.02}, {"id": "C03764", "name": "James Hall", "rep": "Im", "b0": 3024.0, "b31": 26208.0, "b61": 312.0, "b91": -52.5, "b121": 0.0, "payment": 0, "total": 29491.5}, {"id": "C00662", "name": "Juice Sauz Ltd", "rep": "Mandeep Kohli", "b0": 42063.6, "b31": 13117.82, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 55181.42}, {"id": "C04910", "name": "Manzoor Manzoor Ahmad", "rep": "Haider", "b0": 0.0, "b31": 732.07, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 732.07}, {"id": "C04448", "name": "MCR VAPING LTD", "rep": "Haider", "b0": 141925.2, "b31": 1800.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 143725.2}, {"id": "C01279", "name": "Mitalee Shah", "rep": "Mandeep Kohli", "b0": 0.0, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 13182.26, "payment": 0, "total": 13182.26}, {"id": "C03959", "name": "Nevada international limited T/A Magnum Vapes", "rep": "Haider", "b0": 871.8, "b31": 17983.5, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 18855.3}, {"id": "C00918", "name": "Nottingham_Haze", "rep": "Mandeep Kohli", "b0": 0.0, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 6087.51, "payment": 0, "total": 6087.51}, {"id": "C03600", "name": "Ov Distribution Ltd", "rep": "Mandeep Kohli", "b0": 28004.64, "b31": 7658.4, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 35663.04}, {"id": "C03834", "name": "PU Wholesale & Distribution", "rep": "Mandeep Kohli", "b0": 8757.9, "b31": 31152.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 39909.9}, {"id": "C03439", "name": "Raging Bull Limited", "rep": "Mandeep Kohli", "b0": 25200.3, "b31": 180.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 25380.3}, {"id": "C03061", "name": "Robin Hansson", "rep": "Marta", "b0": 0.0, "b31": 0.0, "b61": 0.0, "b91": 140.0, "b121": -15.0, "payment": 0, "total": 125.0}, {"id": "C02187", "name": "RSB Traders Ltd T/A Vapor Shop Direct", "rep": "Mandeep Kohli", "b0": 84162.43, "b31": 1979.03, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 86141.46}, {"id": "C02192", "name": "Sharp Hawk Uk Ltd,", "rep": "Mandeep Kohli", "b0": 0.0, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 32319.84, "payment": 0, "total": 32319.84}, {"id": "C04356", "name": "Singhs Newcastle ltd", "rep": "Khurram, Shaheryar", "b0": 26296.68, "b31": 4890.48, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 31187.16}, {"id": "C03965", "name": "Smart fix Mcr limited", "rep": "Haider", "b0": 22368.96, "b31": 7492.2, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 29861.16}, {"id": "C01395", "name": "The Ace Of Vapes Wholesale Ltd", "rep": "Mandeep Kohli", "b0": 77714.29, "b31": 14345.16, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 92059.45}, {"id": "C00971", "name": "The E-Cig Store Ltd", "rep": "Mandeep Kohli", "b0": 16631.76, "b31": 55493.16, "b61": -195.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 71929.92}, {"id": "C01445", "name": "The Yorkshire Vaper", "rep": "Mandeep Kohli", "b0": 0.0, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 2197.91, "payment": 0, "total": 2197.91}, {"id": "C03129", "name": "Tooting Cloud City Vape", "rep": "Mandeep Kohli", "b0": 3926.84, "b31": 1096.39, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 5023.23}, {"id": "C03579", "name": "UNIQUE WHOLESALE & DISTRIBUTION LIMITED", "rep": "Mandeep Kohli", "b0": 95979.61, "b31": 1923.9, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 97903.51}, {"id": "C03021", "name": "Vape Mart", "rep": "Mandeep Kohli", "b0": 27570.78, "b31": 22234.34, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 49805.12}, {"id": "C01685", "name": "Vape Steam Ltd / T/A Vape Hut UK", "rep": "Thom Goodman", "b0": 13716.51, "b31": 6744.28, "b61": 0.0, "b91": 0.0, "b121": -247.2, "payment": 0, "total": 20213.59}, {"id": "C03569", "name": "Vape Wholesale Store LTD", "rep": "Mandeep Kohli", "b0": 49858.32, "b31": 48214.8, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 98073.12}, {"id": "C03939", "name": "Vapours Limited", "rep": "Haider", "b0": 19615.2, "b31": 45556.6, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 65171.8}, {"id": "C04792", "name": "WH Smith", "rep": "Mandeep Kohli", "b0": 0.0, "b31": 0.0, "b61": 2310.66, "b91": 49891.2, "b121": 0.0, "payment": 0, "total": 52201.86}, {"id": "C02269", "name": "Xtreme Juice Ltd", "rep": "Mandeep Kohli", "b0": 0.0, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 35644.78, "payment": 0, "total": 35644.78}, {"id": "C00876", "name": "Xyfil Ltd t/a My Vapery", "rep": "Mandeep Kohli", "b0": 900.0, "b31": 900.0, "b61": 0.0, "b91": 0.0, "b121": -900.0, "payment": 0, "total": 900.0}, {"id": "C04831", "name": "Zavi Tech Ltd t/a Zavi Wholesale", "rep": "Haider", "b0": 0.0, "b31": 11241.6, "b61": 29961.6, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 41203.2}, {"id": "C04622", "name": "4K Wholesale", "rep": "Mandeep Kohli", "b0": 24215.64, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 24215.64}, {"id": "C04501", "name": "7th Generation - Davin SINGH", "rep": "Parmar, Sanjiv", "b0": 3054.13, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 3054.13}, {"id": "C04500", "name": "7th Generation - MOHINDER SINGH", "rep": "Parmar, Sanjiv", "b0": 7939.58, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 7939.58}, {"id": "C04499", "name": "7th Generation - Ramkishan Singh", "rep": "Parmar, Sanjiv", "b0": 6036.28, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 6036.28}, {"id": "C04581", "name": "7th Generation - Sanjeet Ram", "rep": "Parmar, Sanjiv", "b0": 8165.08, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 8165.08}, {"id": "C04984", "name": "888 Vapour / OTV", "rep": "Mandeep Kohli", "b0": 15943.3, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 15943.3}, {"id": "C00031", "name": "ACME VAPE LABS", "rep": "Mandeep Kohli", "b0": 1516.4, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 1516.4}, {"id": "C03168", "name": "Amit Sood Jasmine News Ltd", "rep": "Jay", "b0": 1677.3, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 1677.3}, {"id": "C02147", "name": "Aqua Vape", "rep": "Mandeep Kohli", "b0": 33749.88, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 33749.88}, {"id": "C04485", "name": "BH DISTRIBUTIONS LTD", "rep": "Mandeep Kohli", "b0": 87513.24, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 87513.24}, {"id": "C00120", "name": "Big Vapes", "rep": "Mandeep Kohli", "b0": 867.76, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 867.76}, {"id": "C04669", "name": "Bindra distribution ltd", "rep": "Haider", "b0": 11896.4, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 11896.4}, {"id": "C02564", "name": "Burlington Bertie Ltd - Vimal Shah", "rep": "Sanjiv", "b0": 418.92, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": -13.08, "payment": 0, "total": 405.84}, {"id": "C03148", "name": "CCHG LTD t/a VPZ", "rep": "Mandeep Kohli", "b0": 47286.0, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 47286.0}, {"id": "C00185", "name": "CCR Vape", "rep": "Mandeep Kohli", "b0": 1003.54, "b31": -18.34, "b61": -16.2, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 969.0}, {"id": "C00408", "name": "Cig Access", "rep": "Mandeep Kohli", "b0": 4981.05, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 4981.05}, {"id": "C04782", "name": "Consumer Brands International S.R.O", "rep": "", "b0": 3632.0, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 3632.0}, {"id": "C04476", "name": "Deepanshu Nath", "rep": "Parmar, Sanjiv", "b0": 4095.79, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 4095.79}, {"id": "C04477", "name": "Distroberry", "rep": "Khurram, Shaheryar", "b0": 37996.77, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 37996.77}, {"id": "C04894", "name": "DMS Promotions Ltd t/a e-Vapes Jarod Cohen", "rep": "Parmar, Sanjiv", "b0": 17697.84, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 17697.84}, {"id": "C00674", "name": "Easivape", "rep": "Terry", "b0": 198.36, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 198.36}, {"id": "C01894", "name": "Ecig One", "rep": "Mandeep Kohli", "b0": 30024.24, "b31": -5.28, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 30018.96}, {"id": "C04273", "name": "Eco Smok Limited - Aurangzaib Shaikh", "rep": "Jatinder", "b0": 52324.03, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 52324.03}, {"id": "C00885", "name": "Elux Europe Ltd", "rep": "Mandeep Kohli", "b0": 900.0, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 900.0}, {"id": "C00429", "name": "Evapo, C/O Spatial Group Spatial House,", "rep": "Im", "b0": 8468.16, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 8468.16}, {"id": "C00436", "name": "Evolution Vaping", "rep": "Mandeep Kohli", "b0": 232801.9, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 232801.9}, {"id": "C00438", "name": "Evpe CCVapours Online", "rep": "Matt Pasternicki", "b0": 7945.19, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": -18.24, "payment": 0, "total": 7926.95}, {"id": "C00474", "name": "Flavour Warehouse Limited", "rep": "Mandeep Kohli", "b0": 48722.16, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 48722.16}, {"id": "C04843", "name": "Fmcg ltd", "rep": "Haider", "b0": 7081.2, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 7081.2}, {"id": "C04760", "name": "Friends UK LTD", "rep": "Mandeep Kohli", "b0": 45245.28, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 45245.28}, {"id": "C03987", "name": "Gallaher Limited", "rep": "Mandeep Kohli", "b0": 4946.9, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 4946.9}, {"id": "C03106", "name": "Grays Cloud City Vape", "rep": "Mandeep Kohli", "b0": 13637.04, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 13637.04}, {"id": "C00530", "name": "green lion distribution limited", "rep": "Haider", "b0": 8938.8, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 8938.8}, {"id": "C00536", "name": "gufran accessories LTD", "rep": "Mandeep Kohli", "b0": 69.78, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 69.78}, {"id": "C04946", "name": "Gummy traders limited", "rep": "Haider", "b0": 28465.87, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 28465.87}, {"id": "C00581", "name": "Hove Vapor Inc", "rep": "Parmar, Sanjiv", "b0": 2348.36, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 2348.36}, {"id": "C03417", "name": "HRM Trade Limited", "rep": "Mandeep Kohli", "b0": 5014.38, "b31": 0.0, "b61": -6.84, "b91": 0.0, "b121": -44.0, "payment": 0, "total": 4963.54}, {"id": "C03107", "name": "Ilford Cloud City Vape", "rep": "Mandeep Kohli", "b0": 3985.21, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 3985.21}, {"id": "C04916", "name": "Islington Cloud City Vape", "rep": "Mandeep Kohli", "b0": 11036.19, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 11036.19}, {"id": "C00643", "name": "Jewel Of Vape Ltd", "rep": "Mandeep Kohli", "b0": 7772.52, "b31": -24.6, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 7747.92}, {"id": "C04790", "name": "JHT Group Limited", "rep": "Haider", "b0": 3526.38, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 3526.38}, {"id": "C02393", "name": "Jonni Singh", "rep": "Haider", "b0": 27022.2, "b31": -117.72, "b61": -6.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 26898.48}, {"id": "C04961", "name": "Josh Douglas", "rep": "Matt Pasternicki", "b0": 1023.84, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 1023.84}, {"id": "C04217", "name": "KELUAR UK TRADING LIMITED", "rep": "Haider", "b0": 44637.9, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 44637.9}, {"id": "C01832", "name": "Kn Kn Global Ltd T/A Vivo Vape Earl Shilton", "rep": "Alex", "b0": 2772.59, "b31": 0.0, "b61": -77.76, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 2694.83}, {"id": "C01833", "name": "Kn kn Trading Ltd T/a Vivo Vape Syston", "rep": "Alex", "b0": 4345.95, "b31": 0.0, "b61": -42.12, "b91": -15.12, "b121": 0.0, "payment": 0, "total": 4288.71}, {"id": "C01834", "name": "Ks Excellence Ltd T/a Vivo Vape Loughborough", "rep": "Alex", "b0": 2534.03, "b31": -16.2, "b61": -53.31, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 2464.52}, {"id": "C02753", "name": "Kyle Moore", "rep": "Mandeep Kohli", "b0": 38700.53, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 38700.53}, {"id": "C03218", "name": "Little Market Convenience Store Serhat Can", "rep": "Parmar, Sanjiv", "b0": 5679.84, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": -2.26, "payment": 0, "total": 5677.58}, {"id": "C02171", "name": "Londis", "rep": "Mandeep Kohli", "b0": 979.62, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 979.62}, {"id": "C00769", "name": "London Vape Wholesale", "rep": "Mandeep Kohli", "b0": 22227.37, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 22227.37}, {"id": "C00835", "name": "Mix Labs UK LTD", "rep": "Matt Pasternicki", "b0": 16993.47, "b31": -986.93, "b61": -8.06, "b91": 0.0, "b121": -10.08, "payment": 0, "total": 15988.4}, {"id": "C02160", "name": "Ninja vapes Limited", "rep": "Mandeep Kohli", "b0": 8194.98, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 8194.98}, {"id": "C04422", "name": "O2 Distribution ltd", "rep": "Haider", "b0": 11848.8, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 11848.8}, {"id": "C04645", "name": "Palmyra Private Limited", "rep": "Haider", "b0": 1622.8, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 1622.8}, {"id": "C00631", "name": "Paul Mason", "rep": "Mandeep Kohli", "b0": 55004.16, "b31": -400.8, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 54603.36}, {"id": "C00980", "name": "Phoenix Whoelsale & distribution limited", "rep": "Mandeep Kohli", "b0": 117364.4, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 117364.4}, {"id": "C02186", "name": "PMP Distribution Limited", "rep": "Mandeep Kohli", "b0": 142.86, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 142.86}, {"id": "C00954", "name": "PNS - Parkash & Sons Ltd (Mandeep)", "rep": "Mandeep Kohli", "b0": 12434.4, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 12434.4}, {"id": "C01030", "name": "PT Distribution", "rep": "Mandeep Kohli", "b0": 3271.77, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": -31.54, "payment": 0, "total": 3240.23}, {"id": "C01039", "name": "Puffstuff Ltd", "rep": "Mandeep Kohli", "b0": 32666.4, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 32666.4}, {"id": "C01205", "name": "Real Trading Ltd", "rep": "Mandeep Kohli", "b0": 8160.0, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 8160.0}, {"id": "C01064", "name": "Red Hot Vaping LTD", "rep": "Mandeep Kohli", "b0": 12212.3, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 12212.3}, {"id": "C02740", "name": "Red Juice", "rep": "Mandeep Kohli", "b0": 874.86, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 874.86}, {"id": "C01075", "name": "REVAPE LTD", "rep": "Mandeep Kohli", "b0": 5052.14, "b31": 0.0, "b61": -118.8, "b91": -12.0, "b121": 0.0, "payment": 0, "total": 4921.34}, {"id": "C03758", "name": "Riot Squad", "rep": "Mandeep Kohli", "b0": 5232.0, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 5232.0}, {"id": "C02673", "name": "RV Karma Ltd", "rep": "Mandeep Kohli", "b0": 1800.0, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 1800.0}, {"id": "C03239", "name": "RYS TRADE LTD", "rep": "Mandeep Kohli", "b0": 1221.32, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 1221.32}, {"id": "C02256", "name": "Salman Essap", "rep": "Marta", "b0": 6859.62, "b31": 0.0, "b61": -36.0, "b91": 0.0, "b121": -59.9, "payment": 0, "total": 6763.72}, {"id": "C03971", "name": "Sathi", "rep": "Mandeep Kohli", "b0": 9048.0, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 9048.0}, {"id": "C04729", "name": "SK Wholesale Vaping Ltd", "rep": "Mandeep Kohli", "b0": 23317.92, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 23317.92}, {"id": "C03934", "name": "Sunny Deol", "rep": "Faisal", "b0": 1025.91, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 1025.91}, {"id": "C00988", "name": "The Vape Shop (Witrock Ltd)", "rep": "Mandeep Kohli", "b0": 3726.8, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 3726.8}, {"id": "C03032", "name": "The Vape Store", "rep": "Mandeep Kohli", "b0": 3001.74, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": -10.8, "payment": 0, "total": 2990.94}, {"id": "C03225", "name": "Tidal Vape", "rep": "Im", "b0": 3703.56, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": -13.0, "payment": 0, "total": 3690.56}, {"id": "C03577", "name": "Tidal Vape", "rep": "Im", "b0": 15646.84, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 15646.84}, {"id": "C04255", "name": "TNS Retail Limited", "rep": "Khurram, Shaheryar", "b0": 31824.29, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 31824.29}, {"id": "C02314", "name": "UK Ecig Vendor Ltd t/a UK Aspire Vendor", "rep": "Mandeep Kohli", "b0": 9760.82, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 9760.82}, {"id": "C01522", "name": "Uk Vapour Brands", "rep": "Mandeep Kohli", "b0": 861.72, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 861.72}, {"id": "C01524", "name": "Ukvk Wholesale", "rep": "Alex", "b0": 52910.82, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 52910.82}, {"id": "C03586", "name": "Ultimate Juice LTD", "rep": "Mandeep Kohli", "b0": 405.28, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 405.28}, {"id": "C04252", "name": "UZD Trading Ltd", "rep": "Mandeep Kohli", "b0": 2864.85, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 2864.85}, {"id": "C02398", "name": "V&M Tolworth Ltd", "rep": "Mandeep Kohli", "b0": 82492.42, "b31": 55202.8, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 137695.22}, {"id": "C01803", "name": "Vape Barz", "rep": "Mandeep Kohli", "b0": 3185.41, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 3185.41}, {"id": "C01270", "name": "VAPE FACTORY", "rep": "Mandeep Kohli", "b0": 65390.4, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 65390.4}, {"id": "C02225", "name": "Vape Heavan (Prince Fancy Goods)", "rep": "Mandeep Kohli", "b0": 6246.08, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 6246.08}, {"id": "C01672", "name": "Vape Lagoon", "rep": "Mandeep Kohli", "b0": 5531.46, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 5531.46}, {"id": "C01644", "name": "Vape Supplier", "rep": "Mandeep Kohli", "b0": 239119.48, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 239119.48}, {"id": "C04751", "name": "Vape Syndicate Ltd - vape cartel", "rep": "Mandeep Kohli", "b0": 9845.58, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 9845.58}, {"id": "C04603", "name": "Vape4World LTD - Tariq Shah", "rep": "Jatinder", "b0": 28425.78, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 28425.78}, {"id": "C01795", "name": "VapeHQ", "rep": "Mandeep Kohli", "b0": 30459.94, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 30459.94}, {"id": "C04253", "name": "vapers paradise", "rep": "Mandeep Kohli", "b0": 16369.42, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 16369.42}, {"id": "C01143", "name": "Vapeserve Ltd - Gary Ball (Mandeep)", "rep": "Mandeep Kohli", "b0": 1590.89, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 1590.89}, {"id": "C00409", "name": "Vapostore", "rep": "Mandeep Kohli", "b0": 2547.0, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 2547.0}, {"id": "C00676", "name": "Ventura Consultancy LTD", "rep": "Mandeep Kohli", "b0": 600.0, "b31": 0.0, "b61": -6.36, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 593.64}, {"id": "C04893", "name": "VIP Bury Ltd - Scott Mclean", "rep": "Faisal", "b0": 20580.36, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 20580.36}, {"id": "C04106", "name": "Washington Vapes Vapes", "rep": "Mandeep Kohli", "b0": 44175.6, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 44175.6}, {"id": "C03116", "name": "Whitechapel Cloud City Vape", "rep": "Mandeep Kohli", "b0": 10103.65, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 10103.65}, {"id": "C04812", "name": "Yaseen Nadeem", "rep": "Haider", "b0": 10178.04, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 10178.04}, {"id": "C01915", "name": "Zebra Worldwide Limited", "rep": "Mandeep Kohli", "b0": 13345.8, "b31": 0.0, "b61": -91.2, "b91": -225.6, "b121": -321.6, "payment": 0, "total": 12707.4}, {"id": "C04446", "name": "Zoom Distro Ltd", "rep": "Sk", "b0": 374.88, "b31": 0.0, "b61": 0.0, "b91": 0.0, "b121": 0.0, "payment": 0, "total": 374.88}];
+var BANK_DATE='11/08/2026';
+var page=0,PAGE=25;
+function $(i){return document.getElementById(i);}
+function pos(v){return v>0?v:0;}
+function fmt(v){if(!v)return'&mdash;';var abs=Math.abs(v),s='&pound;'+abs.toLocaleString('en-GB',{minimumFractionDigits:0,maximumFractionDigits:0});return v<0?'-'+s:s;}
+function fmtK(v){if(Math.abs(v)>=1000000)return'&pound;'+(v/1000000).toFixed(1)+'m';if(Math.abs(v)>=1000)return'&pound;'+Math.round(v/1000).toLocaleString('en-GB')+'k';return'&pound;'+Math.round(v).toLocaleString('en-GB');}
+function drawBarChart(id,labels,values,colors){
+  var canvas=$(id);if(!canvas)return;
+  var dpr=window.devicePixelRatio||1,W=canvas.parentElement.getBoundingClientRect().width||500,H=190;
+  canvas.width=W*dpr;canvas.height=H*dpr;canvas.style.width=W+'px';canvas.style.height=H+'px';
+  var ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);
+  var pL=52,pR=12,pT=12,pB=48,cW=W-pL-pR,cH=H-pT-pB,max=Math.max.apply(null,values)||1;
+  ctx.font='10px -apple-system,sans-serif';
+  for(var i=0;i<=4;i++){
+    var y=pT+cH-(cH*i/4),val=max*i/4;
+    ctx.strokeStyle='rgba(150,150,140,0.2)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(pL,y);ctx.lineTo(pL+cW,y);ctx.stroke();
+    ctx.fillStyle='#898781';ctx.textAlign='right';
+    ctx.fillText(val>=1000?('£'+Math.round(val/1000)+'k'):'£0',pL-4,y+3);
+  }
+  var n=values.length,gap=8,bW=(cW-gap*(n+1))/n;
+  for(var j=0;j<n;j++){
+    var x=pL+gap*(j+1)+bW*j,bh=Math.max((values[j]/max)*cH,0),by=pT+cH-bh,r=Math.min(4,bh/2);
+    ctx.beginPath();
+    if(bh>0){ctx.moveTo(x+r,by);ctx.lineTo(x+bW-r,by);ctx.quadraticCurveTo(x+bW,by,x+bW,by+r);ctx.lineTo(x+bW,by+bh);ctx.lineTo(x,by+bh);ctx.lineTo(x,by+r);ctx.quadraticCurveTo(x,by,x+r,by);}
+    else{ctx.rect(x,pT+cH-1,bW,1);}
+    ctx.closePath();ctx.fillStyle=colors[j];ctx.fill();
+    ctx.fillStyle='#898781';ctx.textAlign='center';ctx.font='10px -apple-system,sans-serif';
+    var parts=labels[j].split(' ');
+    ctx.fillText(parts[0],x+bW/2,pT+cH+14);if(parts[1])ctx.fillText(parts[1],x+bW/2,pT+cH+26);
+  }
+}
+function buildRepFilter(){
+  var el=$('repFilter');
+  [...new Set(RAW.map(function(r){return r.rep;}).filter(Boolean))].sort().forEach(function(rep){var o=document.createElement('option');o.value=rep;o.textContent=rep;el.appendChild(o);});
+}
+function kpi(label,val,cls){return'<div class="kpi"><div class="kpi-label">'+label+'</div><div class="kpi-val '+cls+'">'+val+'</div></div>';}
+function buildKPIs(){
+  var total=RAW.reduce(function(s,r){return s+r.total;},0);
+  var b0s=RAW.reduce(function(s,r){return s+pos(r.b0);},0);
+  var b31s=RAW.reduce(function(s,r){return s+pos(r.b31);},0);
+  var b61s=RAW.reduce(function(s,r){return s+pos(r.b61);},0);
+  var b91s=RAW.reduce(function(s,r){return s+pos(r.b91);},0);
+  var b121s=RAW.reduce(function(s,r){return s+pos(r.b121);},0);
+  var payments=RAW.reduce(function(s,r){return s+r.payment;},0);
+  var overdue=b31s+b61s+b91s+b121s,pct=total>0?Math.round(overdue/total*100):0;
+  var crit=RAW.filter(function(r){return r.b91>0||r.b121>0;}).length;
+  var paidCount=RAW.filter(function(r){return r.payment>0;}).length;
+  $('kpis').innerHTML=
+    kpi('Total balance',fmtK(total),'')
+    +kpi('Current (0&ndash;30)',fmtK(b0s),'')
+    +kpi('31&ndash;60 days',fmtK(b31s),b31s>0?'warn':'')
+    +kpi('61&ndash;90 days',fmtK(b61s),b61s>0?'danger':'')
+    +kpi('91+ days',fmtK(b91s+b121s),(b91s+b121s)>0?'danger':'')
+    +kpi('Overdue %',pct+'%',pct>20?'danger':pct>10?'warn':'')
+    +kpi(paidCount>0?'Paid today ('+paidCount+')':'Paid today',payments>0?fmtK(payments):'&mdash;',payments>0?'green':'')
+    +kpi('91+ day accounts',''+crit,crit>0?'danger':'');
+}
+function buildChart(){
+  drawBarChart('ageChart',
+    ['0-30 days','31-60 days','61-90 days','91-120 days','121+ days'],
+    [Math.round(RAW.reduce(function(s,r){return s+pos(r.b0);},0)),
+     Math.round(RAW.reduce(function(s,r){return s+pos(r.b31);},0)),
+     Math.round(RAW.reduce(function(s,r){return s+pos(r.b61);},0)),
+     Math.round(RAW.reduce(function(s,r){return s+pos(r.b91);},0)),
+     Math.round(RAW.reduce(function(s,r){return s+pos(r.b121);},0))],
+    ['#2a78d6','#eda100','#eb6834','#e24b4a','#a32d2d']);
+}
+function buildRepBars(){
+  var t={};RAW.forEach(function(r){var k=r.rep||'Unknown';t[k]=(t[k]||0)+r.total;});
+  var sorted=Object.entries(t).filter(function(e){return e[1]>0;}).sort(function(a,b){return b[1]-a[1];}).slice(0,9);
+  var max=sorted.length?sorted[0][1]:1;
+  $('repBars').innerHTML=sorted.map(function(e){return'<div class="rep-row"><span class="rep-name" title="'+e[0]+'">'+e[0]+'</span><div class="bar-bg"><div class="bar-fill" style="width:'+Math.round(e[1]/max*100)+'%"></div></div><span class="rep-val">'+fmtK(e[1])+'</span></div>';}).join('');
+}
+function getFiltered(){
+  var s=$('search').value.toLowerCase(),rep=$('repFilter').value,bucket=$('bucketFilter').value,sort=$('sortField').value;
+  return RAW.filter(function(r){
+    if(s&&r.name.toLowerCase().indexOf(s)<0&&r.id.toLowerCase().indexOf(s)<0&&r.rep.toLowerCase().indexOf(s)<0)return false;
+    if(rep&&r.rep!==rep)return false;
+    if(bucket==='current'&&r.b0<=0)return false;
+    if(bucket==='31'&&r.b31<=0)return false;
+    if(bucket==='61'&&r.b61<=0)return false;
+    if(bucket==='91'&&r.b91<=0)return false;
+    if(bucket==='121'&&r.b121<=0)return false;
+    if(bucket==='overdue'&&(r.b31+r.b61+r.b91+r.b121)<=0)return false;
+    if(bucket==='paid'&&r.payment<=0)return false;
+    return true;
+  }).sort(function(a,b){
+    if(sort==='name')return a.name.localeCompare(b.name);
+    if(sort==='payment')return b.payment-a.payment;
+    if(sort==='b31')return b.b31-a.b31;
+    if(sort==='b61')return b.b61-a.b61;
+    if(sort==='b91')return(b.b91+b.b121)-(a.b91+a.b121);
+    return b.total-a.total;
+  });
+}
+function badge(r){
+  if(r.b121>0)return'<span class="badge badge-critical">121+ days</span>';
+  if(r.b91>0)return'<span class="badge badge-danger">91&ndash;120 days</span>';
+  if(r.b61>0)return'<span class="badge badge-danger">61&ndash;90 days</span>';
+  if(r.b31>0)return'<span class="badge badge-warn">31&ndash;60 days</span>';
+  return'<span class="badge badge-ok">Current</span>';
+}
+function render(){
+  var f=getFiltered(),start=page*PAGE,end=Math.min(start+PAGE,f.length);
+  $('tinfo').innerHTML='Showing '+(f.length===0?0:start+1)+'&ndash;'+end+' of '+f.length+' customers';
+  $('pageInfo').textContent='Page '+(page+1)+' of '+Math.max(1,Math.ceil(f.length/PAGE));
+  $('prevBtn').disabled=page===0;$('nextBtn').disabled=end>=f.length;
+  $('tbody').innerHTML=f.slice(start,end).map(function(r){
+    var hp=r.payment>0;
+    return'<tr class="'+(hp?'has-payment':'')+'">'
+      +'<td title="'+r.name+'">'+r.name+'</td>'
+      +'<td>'+(r.id||'&mdash;')+'</td>'
+      +'<td title="'+r.rep+'">'+(r.rep||'&mdash;')+'</td>'
+      +'<td class="num">'+(r.b0>0?fmt(r.b0):'&mdash;')+'</td>'
+      +'<td class="num'+(r.b31>0?' num-warn':'')+'">'+(r.b31>0?fmt(r.b31):'&mdash;')+'</td>'
+      +'<td class="num'+(r.b61>0?' num-danger':'')+'">'+(r.b61>0?fmt(r.b61):'&mdash;')+'</td>'
+      +'<td class="num'+(r.b91>0?' num-danger':'')+'">'+(r.b91>0?fmt(r.b91):'&mdash;')+'</td>'
+      +'<td class="num'+(r.b121>0?' num-danger':'')+'">'+(r.b121>0?fmt(r.b121):'&mdash;')+'</td>'
+      +(hp?'<td class="payment-val">&minus;&pound;'+r.payment.toLocaleString('en-GB',{minimumFractionDigits:0,maximumFractionDigits:0})+'</td>':'<td class="num">&mdash;</td>')
+      +'<td class="num" style="font-weight:700">'+fmt(r.total)+'</td>'
+      +'<td>'+(hp?'<span class="payment-tag">&#10003; Paid '+BANK_DATE+'</span>':badge(r))+'</td>'
+      +'</tr>';
+  }).join('');
+}
+['search','repFilter','bucketFilter','sortField'].forEach(function(id){$(id).addEventListener(id==='search'?'input':'change',function(){page=0;render();});});
+$('prevBtn').addEventListener('click',function(){page--;render();});
+$('nextBtn').addEventListener('click',function(){page++;render();});
+buildRepFilter();buildKPIs();buildChart();buildRepBars();render();
+window.addEventListener('resize',function(){buildChart();});
+</script>
+</body>
+</html>
