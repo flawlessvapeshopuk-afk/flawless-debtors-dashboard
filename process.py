@@ -8,42 +8,56 @@ import json, re, sys, os, glob
 import openpyxl
 
 # ── Find the most recent xlsx in /data ──────────────────────────────────────
-data_dir = os.path.join(os.path.dirname(__file__), 'data')
+script_dir = os.path.dirname(os.path.abspath(__file__))
+data_dir = os.path.join(script_dir, 'data')
 xlsx_files = glob.glob(os.path.join(data_dir, '*.xlsx'))
+
 if not xlsx_files:
     print("ERROR: No .xlsx files found in /data folder")
     sys.exit(1)
 
-# Use the most recently modified file
 source_file = max(xlsx_files, key=os.path.getmtime)
 print(f"Processing: {os.path.basename(source_file)}")
 
 # ── Read workbook ────────────────────────────────────────────────────────────
-wb = openpyxl.load_workbook(source_file, read_only=True, data_only=False)
+try:
+    wb = openpyxl.load_workbook(source_file, read_only=True, data_only=False)
+except Exception as e:
+    print(f"ERROR: Could not open file: {e}")
+    sys.exit(1)
+
 ws = wb.active
 rows = list(ws.iter_rows(values_only=True))
+print(f"Total rows in file: {len(rows)}")
 
-# Find header row (contains "Customer ID" or "Customer name")
+# ── Find header row ──────────────────────────────────────────────────────────
 header_idx = None
-for i, row in enumerate(rows[:10]):
-    if any(str(c or '').lower().strip() in ['customer id', 'customer name'] for c in row):
+for i, row in enumerate(rows[:15]):
+    row_lower = [str(c or '').lower().strip() for c in row]
+    if 'customer id' in row_lower or 'customer name' in row_lower:
         header_idx = i
+        print(f"Header row found at index {i}")
         break
 
 if header_idx is None:
-    print("ERROR: Could not find header row in spreadsheet")
+    print("ERROR: Could not find header row — dumping first 10 rows for diagnosis:")
+    for i, row in enumerate(rows[:10]):
+        print(f"  Row {i}: {[str(c or '')[:25] for c in row[:8]]}")
     sys.exit(1)
 
-# Extract report date from title row
-title = str(rows[0][0] or '')
+# ── Extract report date ──────────────────────────────────────────────────────
+title = str(rows[0][0] or '') if rows else ''
 m = re.search(r'upto\s+(\d+/\d+/\d+)', title, re.I)
 report_date = m.group(1) if m else 'latest'
+print(f"Report date: {report_date}")
 
 headers = [str(c or '').strip() for c in rows[header_idx]]
+print(f"Headers: {headers}")
 
-# Find bank/payment column (a date-formatted header like 24/07/2026)
+# ── Find columns ─────────────────────────────────────────────────────────────
 bank_col = next((i for i, h in enumerate(headers) if re.match(r'\d+/\d+/\d+', h)), None)
-bank_date = headers[bank_col] if bank_col else ''
+bank_date = headers[bank_col] if bank_col is not None else ''
+print(f"Bank/payment column: index={bank_col}, date={bank_date}")
 
 def ci(name):
     for i, h in enumerate(headers):
@@ -59,8 +73,15 @@ i31    = ci('31-60')
 i61    = ci('61-90')
 i91    = ci('91-120')
 i121   = ci('121-')
-iTotal = ci('Total')
+iTotal = ci('total')
 
+print(f"Column indices: id={iId} name={iName} rep={iRep} 0-30={i30} 31-60={i31} 61-90={i61} 91-120={i91} 121={i121} total={iTotal}")
+
+if iName is None:
+    print("ERROR: Cannot find 'Customer name' column")
+    sys.exit(1)
+
+# ── Parse numbers safely ─────────────────────────────────────────────────────
 def num(row, i):
     if i is None or i >= len(row): return 0
     v = row[i]
@@ -71,46 +92,66 @@ def num(row, i):
         s = s[1:]
         try: return sum(float(x) for x in s.replace('-', '+-').split('+') if x.strip())
         except: return 0
-    try: return float(s)
+    try: return float(s.replace(',', ''))
     except: return 0
 
 # ── Parse data rows ──────────────────────────────────────────────────────────
 seen = set()
 data = []
-for row in rows[header_idx + 1:]:
-    name = str(row[iName] or '').strip()
-    cid  = str(row[iId] or '').strip()
-    if not name or 'total' in name.lower(): continue
-    key = cid or name
-    if key in seen: continue
-    seen.add(key)
+skipped = 0
 
-    b0   = num(row, i30)
-    b31  = num(row, i31)
-    b61  = num(row, i61)
-    b91  = num(row, i91)
-    b121 = num(row, i121)
-    raw_total = num(row, iTotal)
-    payment   = num(row, bank_col) if bank_col else 0
-    final_total = round(raw_total - payment, 2)
+for row_num, row in enumerate(rows[header_idx + 1:], start=header_idx + 2):
+    try:
+        name = str(row[iName] if iName is not None and iName < len(row) else '').strip()
+        cid  = str(row[iId]   if iId   is not None and iId   < len(row) else '').strip()
 
-    if abs(final_total) < 0.01 and not any([b0, b31, b61, payment]):
+        if not name: continue
+        if any(t in name.lower() for t in ['grand total', 'total']): continue
+
+        key = cid or name
+        if key in seen:
+            skipped += 1
+            continue
+        seen.add(key)
+
+        b0   = num(row, i30)
+        b31  = num(row, i31)
+        b61  = num(row, i61)
+        b91  = num(row, i91)
+        b121 = num(row, i121)
+        raw_total = num(row, iTotal)
+        payment   = num(row, bank_col) if bank_col is not None else 0
+        final_total = round(raw_total - payment, 2)
+
+        if abs(final_total) < 0.01 and not any([b0, b31, b61, payment]):
+            continue
+
+        rep = str(row[iRep] if iRep is not None and iRep < len(row) else '').strip().title()
+
+        data.append({
+            "id": cid, "name": name, "rep": rep,
+            "b0":   round(b0,   2),
+            "b31":  round(b31,  2),
+            "b61":  round(b61,  2),
+            "b91":  round(b91,  2),
+            "b121": round(b121, 2),
+            "payment": round(payment, 2),
+            "total": final_total
+        })
+
+    except Exception as e:
+        print(f"  Warning: skipped row {row_num}: {e}")
         continue
 
-    rep = str(row[iRep] or '').strip().title()  # normalise capitalisation
+print(f"Records parsed: {len(data)} (skipped {skipped} duplicates)")
+print(f"Payments today: {sum(1 for r in data if r['payment'] > 0)}")
 
-    data.append({
-        "id": cid, "name": name, "rep": rep,
-        "b0": round(b0, 2), "b31": round(b31, 2), "b61": round(b61, 2),
-        "b91": round(b91, 2), "b121": round(b121, 2),
-        "payment": round(payment, 2), "total": final_total
-    })
+if len(data) == 0:
+    print("ERROR: No data rows found — aborting so we don't publish a blank dashboard")
+    sys.exit(1)
 
-print(f"Records: {len(data)}, date: {report_date}, bank date: {bank_date}")
-print(f"Payments: {sum(1 for r in data if r['payment'] > 0)} customers")
-
-# ── Build HTML ───────────────────────────────────────────────────────────────
-html = """<!DOCTYPE html>
+# ── HTML template ─────────────────────────────────────────────────────────────
+HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -171,7 +212,7 @@ tr.has-payment td{background:rgba(46,125,50,0.04);}tr.has-payment:hover td{backg
   <div class="top-bar">
     <div>
       <h1>Flawless UK &nbsp;<span>Debtors</span></h1>
-      <div class="report-date">Aged debt as at REPORT_DATE &nbsp;&middot;&nbsp; Payments as at BANK_DATE &nbsp;&middot;&nbsp; CUSTOMER_COUNT customers</div>
+      <div class="report-date">Aged debt as at {{REPORT_DATE}} &nbsp;&middot;&nbsp; Payments as at {{BANK_DATE}} &nbsp;&middot;&nbsp; {{CUSTOMER_COUNT}} customers</div>
     </div>
     <span class="tag">&#128202; Live report</span>
   </div>
@@ -232,11 +273,11 @@ tr.has-payment td{background:rgba(46,125,50,0.04);}tr.has-payment:hover td{backg
     <span id="pageInfo"></span>
     <button id="nextBtn">Next &rsaquo;</button>
   </div>
-  <div class="footer">Flawless UK &middot; Debtors Dashboard &middot; Aged debt REPORT_DATE &middot; Payments BANK_DATE</div>
+  <div class="footer">Flawless UK &middot; Debtors Dashboard &middot; Aged debt {{REPORT_DATE}} &middot; Payments {{BANK_DATE}}</div>
 </div>
 <script>
-var RAW=DATA_JSON;
-var BANK_DATE='BANK_DATE_JS';
+var RAW={{DATA_JSON}};
+var BANK_DATE='{{BANK_DATE_JS}}';
 var page=0,PAGE=25;
 function $(i){return document.getElementById(i);}
 function pos(v){return v>0?v:0;}
@@ -369,16 +410,17 @@ window.addEventListener('resize',function(){buildChart();});
 </body>
 </html>"""
 
-# Inject data
-html = html.replace('REPORT_DATE', report_date)
-html = html.replace('BANK_DATE_JS', bank_date)
-html = html.replace('BANK_DATE', bank_date)
-html = html.replace('CUSTOMER_COUNT', str(len(data)))
-html = html.replace('DATA_JSON', json.dumps(data))
+# ── Inject data safely using placeholders ────────────────────────────────────
+html = HTML_TEMPLATE
+html = html.replace('{{REPORT_DATE}}',    report_date)
+html = html.replace('{{BANK_DATE_JS}}',   bank_date)
+html = html.replace('{{BANK_DATE}}',      bank_date)
+html = html.replace('{{CUSTOMER_COUNT}}', str(len(data)))
+html = html.replace('{{DATA_JSON}}',      json.dumps(data))
 
-# Write output
-out_path = os.path.join(os.path.dirname(__file__), 'index.html')
+# ── Write output ─────────────────────────────────────────────────────────────
+out_path = os.path.join(script_dir, 'index.html')
 with open(out_path, 'w', encoding='utf-8') as f:
     f.write(html)
 
-print(f"Written: index.html ({len(html):,} bytes)")
+print(f"SUCCESS: Written index.html ({len(html):,} bytes)")
